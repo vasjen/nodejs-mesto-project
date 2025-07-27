@@ -9,7 +9,7 @@ import { USER_ID_PARAM } from '../const';
 
 export const getAllUsers = async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const users = await userModel.find({});
+    const users = await userModel.find({}).select('-password');
 
     res.send(users);
   } catch (error) {
@@ -19,7 +19,7 @@ export const getAllUsers = async (_req: Request, res: Response, next: NextFuncti
 
 export const getUserById = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const user = await userModel.findById(req.params[USER_ID_PARAM]);
+    const user = await userModel.findById(req.params[USER_ID_PARAM]).select('-password');
 
     if (!user) {
       throw new NotFoundError('Пользователь по указанному _id не найден');
@@ -55,7 +55,10 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
       password: passwordHash,
     });
 
-    res.status(constants.HTTP_STATUS_CREATED).send(createdUser);
+    // Получаем созданного пользователя без пароля
+    const userWithoutPassword = await userModel.findById(createdUser._id).select('-password');
+
+    res.status(constants.HTTP_STATUS_CREATED).send(userWithoutPassword);
   } catch (error: any) {
     if (error instanceof MongooseError.ValidationError) {
       next(new BadRequestError('Переданы некорректные данные при создании пользователя'));
@@ -79,7 +82,7 @@ export const updateProfile = async (req: Request, res: Response, next: NextFunct
     const updatedUser = await userModel.findByIdAndUpdate(userId, {
       name,
       about,
-    }, { new: true, runValidators: true });
+    }, { new: true, runValidators: true }).select('-password');
 
     if (!updatedUser) {
       throw new NotFoundError('Пользователь по указанному _id не найден');
@@ -108,7 +111,7 @@ export const updateAvatar = async (req: Request, res: Response, next: NextFuncti
   try {
     const updatedUser = await userModel.findByIdAndUpdate(userId, {
       avatar,
-    }, { new: true, runValidators: true });
+    }, { new: true, runValidators: true }).select('-password');
 
     if (!updatedUser) {
       throw new NotFoundError('Пользователь по указанному _id не найден');
@@ -134,7 +137,7 @@ export const getProfile = async (req: Request, res: Response, next: NextFunction
   const userId = req.user?._id;
 
   try {
-    const user = await userModel.findById(userId);
+    const user = await userModel.findById(userId).select('-password');
 
     if (!user) {
       throw new NotFoundError('Пользователь по указанному _id не найден');
