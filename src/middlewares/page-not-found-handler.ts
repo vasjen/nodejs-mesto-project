@@ -1,6 +1,7 @@
-import { Request, Response } from 'express';
-import { constants } from 'http2';
+import { NextFunction, Request, Response } from 'express';
 
-export const pageNotFoundHandler = (_req: Request, res: Response) => {
-  res.status(constants.HTTP_STATUS_NOT_FOUND).send({ message: 'Страница не найдена' });
+import { NotFoundError } from '../helpers';
+
+export const pageNotFoundHandler = (_req: Request, _res: Response, next: NextFunction) => {
+  next(new NotFoundError('Страница не найдена'));
 };

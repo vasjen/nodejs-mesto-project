@@ -1,10 +1,7 @@
 import mongoose from 'mongoose';
+import { isURL } from 'validator';
 
-interface ICard {
-  title: string;
-  about: string;
-  avatar: string;
-}
+import { ICard } from '../types';
 
 const cardSchema = new mongoose.Schema({
   name: {
@@ -16,6 +13,9 @@ const cardSchema = new mongoose.Schema({
   link: {
     type: String,
     required: true,
+    validate: {
+      validator: (url: string) => isURL(url),
+    },
   },
   owner: {
     type: mongoose.Schema.Types.ObjectId,

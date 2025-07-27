@@ -1,32 +1,34 @@
 import { NextFunction, Request, Response } from 'express';
 import { constants } from 'http2';
 import { Error as MongooseError } from 'mongoose';
+import bcrypt from 'bcryptjs';
 
-import { CustomError } from '../helpers/error-constructor';
+import { NotFoundError, BadRequestError, ConflictError } from '../helpers';
 import userModel from '../models/user';
+import { USER_ID_PARAM } from '../const';
 
 export const getAllUsers = async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const users = await userModel.find({});
 
     res.send(users);
-  } catch (error: any) {
+  } catch (error) {
     next(error);
   }
 };
 
 export const getUserById = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const user = await userModel.findById(req.params.userId);
+    const user = await userModel.findById(req.params[USER_ID_PARAM]);
 
     if (!user) {
-      throw new CustomError(constants.HTTP_STATUS_NOT_FOUND, 'Пользователь по указанному _id не найден');
+      throw new NotFoundError('Пользователь по указанному _id не найден');
     }
 
     res.send(user);
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof MongooseError.CastError) {
-      next(new CustomError(constants.HTTP_STATUS_NOT_FOUND, 'Пользователь по указанному _id не найден'));
+      next(new NotFoundError('Пользователь по указанному _id не найден'));
       return;
     }
 
@@ -35,19 +37,33 @@ export const getUserById = async (req: Request, res: Response, next: NextFunctio
 };
 
 export const createUser = async (req: Request, res: Response, next: NextFunction) => {
-  const { name, about, avatar } = req.body;
+  const {
+    name,
+    about,
+    avatar,
+    email,
+    password,
+  } = req.body;
 
   try {
+    const passwordHash = await bcrypt.hash(password, 10);
     const createdUser = await userModel.create({
       name,
       about,
       avatar,
+      email,
+      password: passwordHash,
     });
 
     res.status(constants.HTTP_STATUS_CREATED).send(createdUser);
   } catch (error: any) {
     if (error instanceof MongooseError.ValidationError) {
-      next(new CustomError(constants.HTTP_STATUS_BAD_REQUEST, 'Переданы некорректные данные при создании пользователя'));
+      next(new BadRequestError('Переданы некорректные данные при создании пользователя'));
+      return;
+    }
+
+    if (error.code === 11000) {
+      next(new ConflictError('Пользователь с указанным email уже существует'));
       return;
     }
 
@@ -66,18 +82,18 @@ export const updateProfile = async (req: Request, res: Response, next: NextFunct
     }, { new: true, runValidators: true });
 
     if (!updatedUser) {
-      throw new CustomError(constants.HTTP_STATUS_NOT_FOUND, 'Пользователь по указанному _id не найден');
+      throw new NotFoundError('Пользователь по указанному _id не найден');
     }
 
     res.send(updatedUser);
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof MongooseError.CastError) {
-      next(new CustomError(constants.HTTP_STATUS_NOT_FOUND, 'Пользователь по указанному _id не найден'));
+      next(new NotFoundError('Пользователь по указанному _id не найден'));
       return;
     }
 
     if (error instanceof MongooseError.ValidationError) {
-      next(new CustomError(constants.HTTP_STATUS_BAD_REQUEST, 'Переданы некорректные данные при обновлении профиля'));
+      next(new BadRequestError('Переданы некорректные данные при обновлении профиля'));
       return;
     }
 
@@ -95,21 +111,37 @@ export const updateAvatar = async (req: Request, res: Response, next: NextFuncti
     }, { new: true, runValidators: true });
 
     if (!updatedUser) {
-      throw new CustomError(constants.HTTP_STATUS_NOT_FOUND, 'Пользователь по указанному _id не найден');
+      throw new NotFoundError('Пользователь по указанному _id не найден');
     }
 
     res.send(updatedUser);
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof MongooseError.CastError) {
-      next(new CustomError(constants.HTTP_STATUS_NOT_FOUND, 'Пользователь по указанному _id не найден'));
+      next(new NotFoundError('Пользователь по указанному _id не найден'));
       return;
     }
 
     if (error instanceof MongooseError.ValidationError) {
-      next(new CustomError(constants.HTTP_STATUS_BAD_REQUEST, 'Переданы некорректные данные при обновлении профиля'));
+      next(new BadRequestError('Переданы некорректные данные при обновлении профиля'));
       return;
     }
 
+    next(error);
+  }
+};
+
+export const getProfile = async (req: Request, res: Response, next: NextFunction) => {
+  const userId = req.user?._id;
+
+  try {
+    const user = await userModel.findById(userId);
+
+    if (!user) {
+      throw new NotFoundError('Пользователь по указанному _id не найден');
+    }
+
+    res.send(user);
+  } catch (error) {
     next(error);
   }
 };
